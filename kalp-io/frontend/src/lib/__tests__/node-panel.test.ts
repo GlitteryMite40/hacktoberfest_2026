@@ -48,7 +48,9 @@ describe("05.3 NodePanel (Data display & node switching)", () => {
     expect(selected.data.purpose).toContain("Scaffold Next.js App Router");
     expect(selected.data.dependencies).toEqual(["node-1"]);
     expect(selected.data.files).toContain("kalp-io/frontend/package.json");
-    expect(selected.data.criteria).toContain("npm run dev boots without errors");
+    expect(selected.data.criteria).toContain(
+      "npm run dev boots without errors",
+    );
     expect(selected.data.tests).toContain("dev server starts; home page loads");
     expect(selected.data.status).toBe("in_progress");
   });

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import type { StepNode, StepStatus } from "@/lib/plan-map";
+import { CopyPrompt } from "@/components/CopyPrompt";
 
 export interface NodePanelProps {
   node: StepNode | null;
@@ -293,19 +294,14 @@ export function NodePanel({
         )}
       </div>
 
-      {/* 7. Agent / LLM Prompt Section */}
+      {/* 7. Agent / LLM Prompt Section with Copy Button */}
       {promptText && (
         <div className="space-y-2 pt-2 border-t-2 border-[var(--ink)]">
           <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-[#FFCF1E]" />
             <span>Agent Prompt</span>
           </div>
-          <pre
-            tabIndex={0}
-            className="w-full max-h-48 overflow-y-auto p-3.5 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] text-[var(--text)] font-mono text-xs leading-relaxed whitespace-pre-wrap select-all focus:outline-none focus:ring-2 focus:ring-[#8267F5]"
-          >
-            {promptText}
-          </pre>
+          <CopyPrompt prompt={promptText} buttonText="Copy prompt" />
         </div>
       )}
     </aside>
