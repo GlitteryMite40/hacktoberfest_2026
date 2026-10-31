@@ -66,7 +66,7 @@ def _stage_prompt(stage: str, project: dict, previous: dict[str, Any]) -> str:
 def _save_stage(project_id: str, stage: str, output: dict, status: str, error: str | None = None):
     db = get_supabase()
     existing = (
-        db.table("project_stages").select("id,attempts")
+        db.table("project_stages").select("id,attempts,status")
         .eq("project_id", project_id).eq("stage", stage).maybe_single().execute()
     )
     payload = {
@@ -74,7 +74,12 @@ def _save_stage(project_id: str, stage: str, output: dict, status: str, error: s
         "output": output, "error": error
     }
     if existing.data:
-        payload["attempts"] = int(existing.data.get("attempts") or 0) + 1
+        current_attempts = int(existing.data.get("attempts") or 0)
+        payload["attempts"] = (
+            current_attempts + 1
+            if status == "running" and existing.data.get("status") != "running"
+            else current_attempts
+        )
         db.table("project_stages").update(payload).eq("id", existing.data["id"]).execute()
     else:
         payload["attempts"] = 1
@@ -216,6 +221,8 @@ async def run_generation_stage(
         _save_stage(project_id, stage, output, "completed")
         if stage == "acceptance_criteria":
             db.table("projects").update({"status": "ready"}).eq("id", project_id).execute()
+        else:
+            db.table("projects").update({"status": "generating"}).eq("id", project_id).execute()
         return {
             "project_id": project_id,
             "stage": stage,

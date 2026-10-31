@@ -55,8 +55,11 @@ async def github_webhook(
 
     matched = 0
     for commit in event.get("commits") or []:
-        message = (commit.get("message") or "").splitlines()[0]
-        step_keys = re.findall(r"\\[([A-Za-z0-9._-]+)\\]", message)
+        full_message = commit.get("message") or ""
+        message = full_message.splitlines()[0] if full_message.splitlines() else ""
+        if not message:
+            continue
+        step_keys = re.findall(r"\[([A-Za-z0-9._-]+)\]", message)
         for step_key in step_keys:
             node = (
                 db.table("nodes").select("id")
@@ -70,7 +73,7 @@ async def github_webhook(
                 "node_id": node["id"],
                 "commit_sha": commit.get("id"),
                 "commit_message": message,
-                "commit_url": commit.get("url"),
+                "commit_url": f"{(repository.get('html_url') or '').rstrip('/')}/commit/{commit.get('id')}",
                 "author": (commit.get("author") or {}).get("name"),
                 "changed_files": (
                     commit.get("added", [])

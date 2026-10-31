@@ -175,7 +175,7 @@ async def update_node_status(node_id: str, payload: NodeStatusUpdate, request: R
         .eq("target_node_id", node_id).execute().data or []
     )
     prerequisite_ids = [edge["source_node_id"] for edge in edges]
-    if payload.status in {"In Progress", "Completed"} and prerequisite_ids:
+    if payload.status in {"In Progress", "Completed", "Committed"} and prerequisite_ids:
         prerequisites = (
             db.table("nodes").select("id,status").in_("id", prerequisite_ids)
             .execute().data or []
@@ -226,7 +226,7 @@ async def connect_repository(project_id: str, payload: RepositoryConnect, reques
     owner = _require_owner(request)
     _owned_project(project_id, owner)
     match = re.fullmatch(
-        r"https?://github\\.com/([A-Za-z0-9-]+)/([A-Za-z0-9_.-]+?)(?:\\.git)?/?",
+        r"https?://github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?",
         payload.repository_url.strip()
     )
     if not match:

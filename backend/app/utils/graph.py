@@ -28,6 +28,8 @@ def validate_and_normalize_graph(
         if not isinstance(steps, list):
             raise GraphValidationError("A phase contains invalid steps.")
         for step in steps:
+            if not isinstance(step, dict):
+                raise GraphValidationError("A step must be a JSON object.")
             key = str(step.get("step_key", "")).strip()
             if not key or key in seen:
                 raise GraphValidationError(f"Missing or duplicate step key: {key or '(empty)'}")
@@ -45,14 +47,21 @@ def validate_and_normalize_graph(
                 )
             if any(not isinstance(x, str) for x in prerequisites + reqs):
                 raise GraphValidationError(f"Step {key} contains invalid graph references.")
+            title = str(step.get("title", "")).strip()
+            explanation = str(step.get("explanation", "")).strip()
+            expected_files = step.get("expected_files", [])
+            if not title or not explanation:
+                raise GraphValidationError(f"Step {key} needs a title and explanation.")
+            if not isinstance(expected_files, list) or any(not isinstance(x, str) for x in expected_files):
+                raise GraphValidationError(f"Step {key} has invalid expected_files.")
             covered.update(reqs)
             nodes.append({
                 "step_key": key,
                 "phase": phase_index,
                 "type": step_type,
-                "title": str(step.get("title", "")).strip(),
-                "explanation": str(step.get("explanation", "")).strip(),
-                "expected_files": step.get("expected_files", []),
+                "title": title,
+                "explanation": explanation,
+                "expected_files": expected_files,
                 "requirement_keys": reqs,
                 "acceptance_criteria": [],
                 "tests": [],
@@ -64,6 +73,11 @@ def validate_and_normalize_graph(
 
     if not nodes:
         raise GraphValidationError("The generated plan contains no steps.")
+    unknown_requirements = covered - requirement_keys
+    if unknown_requirements:
+        raise GraphValidationError(
+            "Steps reference unknown requirements: " + ", ".join(sorted(unknown_requirements))
+        )
     missing = requirement_keys - covered
     if missing:
         raise GraphValidationError(
@@ -71,6 +85,7 @@ def validate_and_normalize_graph(
         )
 
     node_keys = {n["step_key"] for n in nodes}
+    phase_by_key = {node["step_key"]: node["phase"] for node in nodes}
     for edge in edges:
         if edge["source_key"] not in node_keys:
             raise GraphValidationError(
@@ -78,6 +93,10 @@ def validate_and_normalize_graph(
             )
         if edge["source_key"] == edge["target_key"]:
             raise GraphValidationError("A step cannot depend on itself.")
+        if phase_by_key[edge["source_key"]] > phase_by_key[edge["target_key"]]:
+            raise GraphValidationError(
+                f"Step {edge['target_key']} cannot depend on a later-phase step."
+            )
 
     indegree = {key: 0 for key in node_keys}
     children = defaultdict(list)
