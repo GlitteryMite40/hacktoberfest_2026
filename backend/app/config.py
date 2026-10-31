@@ -5,8 +5,17 @@ load_dotenv()
 
 
 class Settings:
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    # Gemma 4 is the production provider. Keep GEMINI_API_KEY as a temporary
+    # compatibility alias so an existing Google AI Studio key can be migrated
+    # without breaking local development.
+    GEMMA_API_KEY = os.getenv("GEMMA_API_KEY") or os.getenv("GEMINI_API_KEY", "")
+    GEMMA_MODEL = os.getenv("GEMMA_MODEL") or "gemma-4-26b-a4b-it"
+    GEMMA_FALLBACK_MODEL = os.getenv("GEMMA_FALLBACK_MODEL") or "gemma-4-31b-it"
+
+    # Backward-compatible aliases for older modules.
+    GEMINI_API_KEY = GEMMA_API_KEY
+    GEMINI_MODEL = GEMMA_MODEL
+
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
     SUPABASE_SECRET_KEY = (
         os.getenv("SUPABASE_SECRET_KEY")
