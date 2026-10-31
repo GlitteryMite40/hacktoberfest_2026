@@ -16,7 +16,8 @@ export default function Home() {
         <div className="pt-4 flex items-center justify-center gap-4">
           <div className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 w-full bg-white dark:bg-zinc-900 shadow-sm">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Frontend scaffolded successfully. Ready for build graph visualizer & workspace.
+              Frontend scaffolded successfully. Ready for build graph visualizer
+              & workspace.
             </p>
           </div>
         </div>

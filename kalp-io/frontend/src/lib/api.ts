@@ -24,7 +24,7 @@ export interface ApiFetchOptions extends RequestInit {
  */
 export async function apiFetch<T>(
   endpoint: string,
-  options: ApiFetchOptions = {}
+  options: ApiFetchOptions = {},
 ): Promise<T> {
   const { params, headers: customHeaders, ...fetchOptions } = options;
 
@@ -43,7 +43,10 @@ export async function apiFetch<T>(
   }
 
   const headers = new Headers(customHeaders);
-  if (!headers.has("Content-Type") && !(fetchOptions.body instanceof FormData)) {
+  if (
+    !headers.has("Content-Type") &&
+    !(fetchOptions.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -55,7 +58,7 @@ export async function apiFetch<T>(
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
     throw new Error(
-      `API request failed with status ${response.status}: ${errorText || response.statusText}`
+      `API request failed with status ${response.status}: ${errorText || response.statusText}`,
     );
   }
 
