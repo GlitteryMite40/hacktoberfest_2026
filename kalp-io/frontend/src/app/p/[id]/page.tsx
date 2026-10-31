@@ -223,6 +223,28 @@ function ProjectGraphContent({ params }: PageProps) {
                 setSelectedNode(target);
               }
             }}
+            onStatusChange={(nodeId, newStatus) => {
+              setGraph((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  nodes: prev.nodes.map((n) =>
+                    n.id === nodeId ? { ...n, status: newStatus } : n,
+                  ),
+                };
+              });
+              setSelectedNode((prev) =>
+                prev && prev.id === nodeId
+                  ? {
+                      ...prev,
+                      data: {
+                        ...prev.data,
+                        status: newStatus,
+                      },
+                    }
+                  : prev,
+              );
+            }}
           />
         )}
       </div>

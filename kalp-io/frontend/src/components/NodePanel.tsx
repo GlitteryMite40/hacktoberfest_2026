@@ -19,12 +19,14 @@ import {
 } from "lucide-react";
 import type { StepNode, StepStatus } from "@/lib/plan-map";
 import { CopyPrompt } from "@/components/CopyPrompt";
+import { StatusControls } from "@/components/StatusControls";
 
 export interface NodePanelProps {
   node: StepNode | null;
   onClose: () => void;
   allNodes?: StepNode[];
   onSelectNode?: (nodeId: string) => void;
+  onStatusChange?: (nodeId: string, newStatus: StepStatus) => void;
   className?: string;
 }
 
@@ -82,6 +84,7 @@ export function NodePanel({
   onClose,
   allNodes = [],
   onSelectNode,
+  onStatusChange,
   className = "",
 }: NodePanelProps) {
   // Close on Escape key press
@@ -99,7 +102,6 @@ export function NodePanel({
 
   const { data } = node;
   const statusConfig = STATUS_MAP[data.status] ?? STATUS_MAP.not_started;
-  const StatusIcon = statusConfig.icon;
 
   // Resolve dependency names and stepKeys
   const dependencies = (data.dependencies ?? []).map((depId) => {
@@ -159,21 +161,21 @@ export function NodePanel({
       </div>
 
       {/* 1. Status Section */}
-      <div className="space-y-2">
-        <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-          Status
-        </span>
-        <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--background)]">
-          <div
-            className="w-8 h-8 rounded-[8px] border-2 border-[var(--ink)] flex items-center justify-center text-black shrink-0 shadow-[2px_2px_0_var(--ink)]"
-            style={{ backgroundColor: statusConfig.bg }}
-          >
-            <StatusIcon className="w-4 h-4 stroke-[2.5]" />
-          </div>
-          <span className="font-bold text-sm text-[var(--text)]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
+            Status
+          </span>
+          <span className="text-xs font-bold font-mono text-[var(--text-muted)]">
             {statusConfig.word}
           </span>
         </div>
+
+        <StatusControls
+          node={node}
+          allNodes={allNodes}
+          onStatusChange={onStatusChange}
+        />
       </div>
 
       {/* 2. Purpose Section */}
