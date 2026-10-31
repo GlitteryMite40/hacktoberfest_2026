@@ -14,24 +14,32 @@ import type {
   RunStageResponse,
   ServiceInfo,
   SimpleActionResponse,
+  ValidationErrorDetail,
   WebhookResponse,
-} from "@/types";
+} from "@/types/api";
 
 /**
  * Kalp.io Shared API Client
- * Reads backend API base URL from process.env.NEXT_PUBLIC_API_BASE_URL.
+ * Reads backend API base URL ONLY from process.env.NEXT_PUBLIC_API_BASE_URL.
  * If unset or empty string, defaults to same origin ("").
+ * Strips trailing slash to ensure clean path joining without double slashes.
  */
 export const API_BASE_URL: string = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
 ).replace(/\/+$/, "");
 
 /**
- * Returns full URL for a given API path
+ * Returns full URL for a given API path with NO trailing slashes,
+ * preventing 307 redirects from FastAPI that can drop CORS and cookie headers.
  */
 export function getApiUrl(path: string): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  const normalizedPath = (path.startsWith("/") ? path : `/${path}`).replace(
+    /\/+$/,
+    "",
+  );
+  // If the path was simply "/" or empty, preserve "/"
+  const cleanPath = normalizedPath.length === 0 ? "/" : normalizedPath;
+  return `${API_BASE_URL}${cleanPath}`;
 }
 
 export interface ApiFetchOptions extends RequestInit {
@@ -39,7 +47,86 @@ export interface ApiFetchOptions extends RequestInit {
 }
 
 /**
- * Shared API fetch wrapper for communicating with the FastAPI backend
+ * Normalises errors from FastAPI ({ detail: ... } or { error: ... }) into one readable message plus status.
+ * Accepts:
+ * - 422 validation error detail arrays: [{ loc: ['body', 'field'], msg: 'field required' }]
+ * - string detail: { detail: 'Project not found' }
+ * - custom backend error: { error: 'Invalid repository URL' }
+ * - raw non-JSON text or HTTP status text
+ */
+export function normalizeErrorMessage(body: string, status: number): string {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+
+      // 1. FastAPI 422 detail array
+      if (Array.isArray(obj.detail)) {
+        const messages = (obj.detail as ValidationErrorDetail[])
+          .map((item) => {
+            if (!item || typeof item !== "object") return "";
+            const loc = Array.isArray(item.loc)
+              ? item.loc.filter((p) => p !== "body").join(".")
+              : "";
+            return loc ? `${loc}: ${item.msg}` : item.msg;
+          })
+          .filter(Boolean);
+
+        if (messages.length > 0) {
+          return messages.join("; ");
+        }
+      }
+
+      // 2. detail string
+      if (typeof obj.detail === "string" && obj.detail.trim()) {
+        return obj.detail.trim();
+      }
+
+      // 3. custom backend error property
+      if (typeof obj.error === "string" && obj.error.trim()) {
+        return obj.error.trim();
+      }
+
+      // 4. message property
+      if (typeof obj.message === "string" && obj.message.trim()) {
+        return obj.message.trim();
+      }
+    }
+  } catch {
+    // Non-JSON body
+  }
+
+  const trimmed = body.trim();
+  if (trimmed.length > 0 && trimmed.length <= 300) {
+    return trimmed;
+  }
+
+  if (status === 404) return "Resource not found";
+  if (status === 429)
+    return "Too many requests. Please slow down and try again";
+  if (status >= 500) return "Server error occurred. Please try again later";
+  return `Request failed with status ${status}`;
+}
+
+/**
+ * Error thrown for non-2xx responses.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: string;
+
+  constructor(status: number, rawBody: string) {
+    const readableMessage = normalizeErrorMessage(rawBody, status);
+    super(readableMessage);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = readableMessage;
+  }
+}
+
+/**
+ * Shared API fetch wrapper for communicating with the FastAPI backend.
+ * Uses credentials: 'include' by default so httpOnly owner cookies stay attached.
  */
 export async function apiFetch<T>(
   endpoint: string,
@@ -69,51 +156,33 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      credentials: "include",
+      ...fetchOptions,
+      headers,
+    });
+  } catch (networkErr) {
+    throw new ApiError(
+      0,
+      networkErr instanceof Error
+        ? networkErr.message
+        : "Network error: unable to connect to the backend.",
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
     throw new ApiError(response.status, errorText || response.statusText);
   }
 
-  return response.json();
-}
-
-/** Error thrown for non-2xx responses. `detail` is FastAPI's error detail when present. */
-export class ApiError extends Error {
-  readonly status: number;
-  readonly detail: string | undefined;
-
-  constructor(status: number, body: string) {
-    super(`API request failed with status ${status}: ${body}`);
-    this.name = "ApiError";
-    this.status = status;
-    this.detail = parseDetail(body);
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return {} as T;
   }
-}
 
-function parseDetail(body: string): string | undefined {
-  try {
-    const parsed: unknown = JSON.parse(body);
-    if (parsed && typeof parsed === "object" && "detail" in parsed) {
-      const detail = (parsed as { detail: unknown }).detail;
-      if (typeof detail === "string") return detail;
-      if (Array.isArray(detail)) {
-        const first: unknown = detail[0];
-        if (first && typeof first === "object" && "msg" in first) {
-          const msg = (first as { msg: unknown }).msg;
-          if (typeof msg === "string") return msg;
-        }
-      }
-    }
-  } catch {
-    // Not JSON; fall through.
-  }
-  const trimmed = body.trim();
-  return trimmed.length > 0 && trimmed.length <= 300 ? trimmed : undefined;
+  return response.json().catch(() => ({}) as T);
 }
 
 /**
@@ -174,7 +243,7 @@ export async function deleteProject(
   );
 }
 
-/** POST /api/projects/{id}/run -> run the next generation stage (call repeatedly until done) */
+/** POST /api/projects/{id}/run -> run the next generation stage */
 export async function runProject(projectId: string): Promise<RunStageResponse> {
   return apiFetch<RunStageResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/run`,
