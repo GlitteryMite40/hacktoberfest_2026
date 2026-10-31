@@ -1,4 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kalp.io Frontend
+
+Kalp.io turns project ideas into dependency-aware build graphs.
+
+## Local Setup
+
+1. Copy `.env.example` to `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Start the FastAPI backend on `127.0.0.1:8000`.
+3. Run the frontend development server bound to `127.0.0.1` so cookies stay same-site:
+   ```bash
+   npm run dev -- -H 127.0.0.1
+   # Or: npx next dev -H 127.0.0.1
+   ```
+4. Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser.
 
 ## Getting Started
 
@@ -6,12 +22,6 @@ First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

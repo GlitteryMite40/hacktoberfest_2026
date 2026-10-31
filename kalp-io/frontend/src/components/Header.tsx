@@ -22,6 +22,12 @@ export function Header() {
           >
             My Projects
           </Link>
+          <Link
+            href="/gemini_status"
+            className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border-2 border-[var(--ink)] bg-[var(--surface)] text-[var(--text)] control-neo shadow-[2px_2px_0_var(--ink)] hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+          >
+            LLM Status
+          </Link>
           <span className="hidden sm:inline-block text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border-2 border-[var(--ink)] bg-[#B1DA19] text-black shadow-[2px_2px_0_var(--ink)]">
             Build Graph
           </span>
