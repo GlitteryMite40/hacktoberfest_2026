@@ -1,3 +1,21 @@
+import type {
+  BuildGraph,
+  BuildNode,
+  ConnectedRepoInfo,
+  ConnectRepoPayload,
+  ConnectRepoResponse,
+  CreateProjectPayload,
+  GitHubWebhookPayload,
+  HealthResponse,
+  LlmStatusResponse,
+  NodeUpdatePayload,
+  PingResponse,
+  Project,
+  ServiceInfo,
+  SimpleActionResponse,
+  WebhookResponse,
+} from "@/types";
+
 /**
  * Kalp.io Shared API Client
  * Reads backend API base URL from process.env.NEXT_PUBLIC_API_BASE_URL.
@@ -64,3 +82,168 @@ export async function apiFetch<T>(
 
   return response.json();
 }
+
+/**
+ * Endpoint implementations
+ */
+
+/** GET / -> basic service info */
+export async function getServiceInfo(): Promise<ServiceInfo> {
+  return apiFetch<ServiceInfo>("/", { method: "GET" });
+}
+
+/** GET /api/health -> { status: "ok" } */
+export async function getHealth(): Promise<HealthResponse> {
+  return apiFetch<HealthResponse>("/api/health", { method: "GET" });
+}
+
+/** GET /api/ping -> { ping: "pong" } */
+export async function getPing(): Promise<PingResponse> {
+  return apiFetch<PingResponse>("/api/ping", { method: "GET" });
+}
+
+/** GET /api/llm/status -> Gemini availability for status page (key present, test call succeeds, model name) */
+export async function getLlmStatus(): Promise<LlmStatusResponse> {
+  return apiFetch<LlmStatusResponse>("/api/llm/status", { method: "GET" });
+}
+
+/** GET /api/projects -> list projects */
+export async function getProjects(): Promise<Project[]> {
+  return apiFetch<Project[]>("/api/projects", { method: "GET" });
+}
+
+/** POST /api/projects -> create project */
+export async function createProject(
+  payload: CreateProjectPayload,
+): Promise<Project> {
+  return apiFetch<Project>("/api/projects", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** GET /api/projects/{id} -> get one project */
+export async function getProject(projectId: string): Promise<Project> {
+  return apiFetch<Project>(`/api/projects/${encodeURIComponent(projectId)}`, {
+    method: "GET",
+  });
+}
+
+/** DELETE /api/projects/{id} -> delete project (cascade nodes/edges/repo) */
+export async function deleteProject(
+  projectId: string,
+): Promise<SimpleActionResponse> {
+  return apiFetch<SimpleActionResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+/** POST /api/projects/{id}/run -> run the project through Gemini and generate/refresh the graph */
+export async function runProject(projectId: string): Promise<BuildGraph> {
+  return apiFetch<BuildGraph>(
+    `/api/projects/${encodeURIComponent(projectId)}/run`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+/** GET /api/projects/{id}/graph -> return nodes and edges for the project */
+export async function getProjectGraph(projectId: string): Promise<BuildGraph> {
+  return apiFetch<BuildGraph>(
+    `/api/projects/${encodeURIComponent(projectId)}/graph`,
+    {
+      method: "GET",
+    },
+  );
+}
+
+/** PATCH /api/nodes/{id} -> partially update a node (title, position, status, notes, etc.) */
+export async function updateNode(
+  nodeId: string,
+  payload: NodeUpdatePayload,
+): Promise<BuildNode> {
+  return apiFetch<BuildNode>(`/api/nodes/${encodeURIComponent(nodeId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** GET /api/projects/{id}/repo -> read the connected repo and its webhook info */
+export async function getProjectRepo(
+  projectId: string,
+): Promise<ConnectedRepoInfo> {
+  return apiFetch<ConnectedRepoInfo>(
+    `/api/projects/${encodeURIComponent(projectId)}/repo`,
+    {
+      method: "GET",
+    },
+  );
+}
+
+/** POST /api/projects/{id}/repo -> connect a PUBLIC GitHub repo */
+export async function connectProjectRepo(
+  projectId: string,
+  payload: ConnectRepoPayload,
+): Promise<ConnectRepoResponse> {
+  return apiFetch<ConnectRepoResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/repo`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** DELETE /api/projects/{id}/repo -> disconnect repo */
+export async function disconnectProjectRepo(
+  projectId: string,
+): Promise<SimpleActionResponse> {
+  return apiFetch<SimpleActionResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/repo`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+/** POST /api/webhook/github -> receive GitHub push events, verify HMAC signature, match repo to project */
+export async function postGitHubWebhook(
+  payload: GitHubWebhookPayload,
+  signature256?: string,
+): Promise<WebhookResponse> {
+  const headers: Record<string, string> = {};
+  if (signature256) {
+    headers["X-Hub-Signature-256"] = signature256;
+  }
+
+  return apiFetch<WebhookResponse>("/api/webhook/github", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Grouped API object for convenience
+ */
+export const api = {
+  getServiceInfo,
+  getHealth,
+  getPing,
+  getLlmStatus,
+  getProjects,
+  createProject,
+  getProject,
+  deleteProject,
+  runProject,
+  getProjectGraph,
+  updateNode,
+  getProjectRepo,
+  connectProjectRepo,
+  disconnectProjectRepo,
+  postGitHubWebhook,
+};
