@@ -270,14 +270,25 @@ export default function HomePage() {
                 idea.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleStartNew}
-              className="h-12 px-5 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-sm text-[var(--text)] control-neo flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              Start new plan
-            </button>
+            <div className="flex items-center gap-3 shrink-0">
+              {projectId && (
+                <a
+                  href={`/p/${encodeURIComponent(projectId)}`}
+                  className="h-12 px-5 rounded-xl border-2 border-[var(--ink)] bg-[#FFCF1E] text-black font-extrabold text-sm control-neo flex items-center gap-2 cursor-pointer shadow-[3px_3px_0_var(--ink)]"
+                >
+                  Interactive Workspace
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleStartNew}
+                className="h-12 px-5 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-sm text-[var(--text)] control-neo flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                Start new plan
+              </button>
+            </div>
           </div>
 
           <GraphView nodes={flowData.nodes} edges={flowData.edges} />
