@@ -56,6 +56,9 @@ export interface StepData extends Record<string, unknown> {
   criteria?: string[];
   tests?: string[];
   prompt?: string;
+  drift?: boolean | string | Record<string, unknown>;
+  driftReason?: string;
+  suggestedMatch?: string;
 }
 
 export type StepNode = Node<StepData, "step">;
@@ -315,6 +318,20 @@ export function toFlow(
       criteria: criteria.length > 0 ? criteria : undefined,
       tests: tests.length > 0 ? tests : undefined,
       prompt: text(node.prompt),
+      drift:
+        typeof node.drift === "object"
+          ? (node.drift as Record<string, unknown>)
+          : node.drift,
+      driftReason:
+        text(node.drift_reason) ??
+        (node.drift && typeof node.drift === "object"
+          ? text((node.drift as Record<string, unknown>).reason)
+          : undefined),
+      suggestedMatch:
+        text(node.suggested_match) ??
+        (node.drift && typeof node.drift === "object"
+          ? text((node.drift as Record<string, unknown>).suggested_match)
+          : undefined),
     };
 
     if (!stepData.prompt) {

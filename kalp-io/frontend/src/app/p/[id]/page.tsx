@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileCode,
   FileText,
+  GitBranch,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import type { BuildGraph, Project } from "@/types";
 import { toFlow, type StepNode } from "@/lib/plan-map";
 import { Graph } from "@/components/Graph";
 import { NodePanel } from "@/components/NodePanel";
+import { RepoConnect } from "@/components/RepoConnect";
 import { downloadPlanAsJson, downloadPlanAsMarkdown } from "@/lib/export";
 
 interface PageProps {
@@ -41,6 +43,7 @@ function ProjectGraphContent({ params }: PageProps) {
   const [project, setProject] = useState<Project | null>(null);
   const [graph, setGraph] = useState<BuildGraph | null>(null);
   const [selectedNode, setSelectedNode] = useState<StepNode | null>(null);
+  const [showRepoModal, setShowRepoModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +69,7 @@ function ProjectGraphContent({ params }: PageProps) {
     }
   };
 
+  // Initial load
   useEffect(() => {
     let isMounted = true;
     void (async () => {
@@ -97,6 +101,29 @@ function ProjectGraphContent({ params }: PageProps) {
       isMounted = false;
     };
   }, [projectId]);
+
+  // 10-second polling while repo is connected, paused when tab is hidden
+  useEffect(() => {
+    if (!project?.repo) return;
+
+    const pollInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return; // Pause polling when tab is hidden
+      }
+
+      void getProjectGraph(projectId)
+        .then((freshGraph) => {
+          setGraph(freshGraph);
+        })
+        .catch(() => {
+          // Silent catch during periodic background poll
+        });
+    }, 10000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [projectId, project?.repo]);
 
   const flowNodes = useMemo(() => {
     if (!graph || !graph.nodes) return [];
@@ -216,6 +243,21 @@ function ProjectGraphContent({ params }: PageProps) {
 
             <button
               type="button"
+              onClick={() => setShowRepoModal(true)}
+              className="h-10 px-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--ink)]"
+              title="Connect GitHub repository"
+            >
+              <GitBranch className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">
+                {project?.repo ? "Repo Settings" : "Connect Repo"}
+              </span>
+              {project?.repo && (
+                <span className="w-2 h-2 rounded-full bg-[#3EC02F]" />
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={fetchProjectAndGraph}
               className="h-10 px-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--ink)]"
               title="Refresh graph"
@@ -275,6 +317,36 @@ function ProjectGraphContent({ params }: PageProps) {
           />
         )}
       </div>
+
+      {/* Repo Connect Modal */}
+      {showRepoModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="repo-modal-title"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div className="relative w-full max-w-xl animate-in fade-in zoom-in-95 duration-150 my-8">
+            <RepoConnect
+              projectId={projectId}
+              repo={project?.repo ?? null}
+              onRepoUpdated={(updatedRepo) => {
+                setProject((prev) =>
+                  prev ? { ...prev, repo: updatedRepo } : prev,
+                );
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowRepoModal(false)}
+              aria-label="Close repo settings"
+              className="absolute top-4 right-4 text-xs font-bold px-2 py-1 rounded border border-[var(--ink)] bg-[var(--surface)] control-neo cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

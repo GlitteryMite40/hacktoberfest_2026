@@ -20,6 +20,7 @@ import {
 import type { StepNode, StepStatus } from "@/lib/plan-map";
 import { CopyPrompt } from "@/components/CopyPrompt";
 import { StatusControls } from "@/components/StatusControls";
+import { DriftBadge } from "@/components/DriftBadge";
 
 export interface NodePanelProps {
   node: StepNode | null;
@@ -148,6 +149,15 @@ export function NodePanel({
           >
             {data.title}
           </h2>
+
+          {/* Drift & Commit match badges */}
+          <DriftBadge
+            status={data.status}
+            drift={data.drift}
+            driftReason={data.driftReason}
+            suggestedMatch={data.suggestedMatch}
+            className="pt-1"
+          />
         </div>
 
         <button
