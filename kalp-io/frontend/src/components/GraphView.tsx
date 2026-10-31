@@ -36,6 +36,8 @@ export function GraphView({ nodes, edges }: GraphViewProps) {
         maxZoom={1.5}
         nodesDraggable={true}
         nodesConnectable={false}
+        nodesFocusable={true}
+        elementsSelectable={true}
       >
         <Background gap={20} size={1.5} color="var(--ink)" />
         <Controls

@@ -1,3 +1,4 @@
+import dagre from "dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type { BuildGraph, BuildNode } from "@/types";
 
@@ -42,15 +43,20 @@ export function toStepStatus(raw: unknown): StepStatus {
 }
 
 export interface StepData extends Record<string, unknown> {
+  id: string;
   title: string;
   stepKey?: string;
   status: StepStatus;
+  phase?: string;
+  description?: string;
+  notes?: string;
+  dependencies?: string[];
 }
 
 export type StepNode = Node<StepData, "step">;
 
-const COLUMN_GAP = 320;
-const ROW_GAP = 116;
+export const NODE_WIDTH = 260;
+export const NODE_HEIGHT = 84;
 
 function text(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
@@ -65,81 +71,203 @@ function edgeEnds(edge: Record<string, unknown>): [string, string] | null {
   return source && target ? [source, target] : null;
 }
 
-function validPosition(node: BuildNode): { x: number; y: number } | null {
-  const pos = node.position;
-  return pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)
-    ? { x: pos.x, y: pos.y }
-    : null;
+/** Extracts or derives phase name for a node */
+export function extractPhase(node: BuildNode): string | undefined {
+  if (text(node.phase)) return text(node.phase);
+  if (text(node.stage)) return text(node.stage);
+  if (node.metadata && typeof node.metadata === "object") {
+    const metaPhase = text((node.metadata as Record<string, unknown>).phase);
+    if (metaPhase) return metaPhase;
+  }
+  const key = text(node.key) ?? text(node.step_key);
+  if (key) {
+    const match = key.match(/^(\d+)/);
+    if (match?.[1]) {
+      return `Phase ${match[1]}`;
+    }
+  }
+  return undefined;
+}
+
+export interface LayoutOptions {
+  direction?: "LR" | "TB";
+  nodeWidth?: number;
+  nodeHeight?: number;
+  nodesep?: number;
+  ranksep?: number;
 }
 
 /**
- * Converts the backend graph into React Flow nodes and edges. Nodes without a
- * saved position are laid out left-to-right by how many steps must come first.
+ * Layout nodes and edges using Dagre by phase / dependency rank.
  */
-export function toFlow(graph: BuildGraph): {
+export function layoutWithDagre(
+  nodes: StepNode[],
+  edges: Edge[],
+  options: LayoutOptions = {},
+): { nodes: StepNode[]; edges: Edge[] } {
+  const {
+    direction = "LR",
+    nodeWidth = NODE_WIDTH,
+    nodeHeight = NODE_HEIGHT,
+    nodesep = 50,
+    ranksep = 80,
+  } = options;
+
+  if (nodes.length === 0) {
+    return { nodes: [], edges: [] };
+  }
+
+  const g = new dagre.graphlib.Graph({ compound: true, multigraph: true });
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({
+    rankdir: direction,
+    nodesep,
+    ranksep,
+    marginx: 40,
+    marginy: 40,
+  });
+
+  // Track distinct phases to support phase grouping
+  const phases = new Set<string>();
+  for (const node of nodes) {
+    if (node.data.phase) {
+      phases.add(node.data.phase);
+    }
+  }
+
+  // Register nodes
+  for (const node of nodes) {
+    g.setNode(node.id, {
+      width: nodeWidth,
+      height: nodeHeight,
+      label: node.data.title,
+    });
+  }
+
+  // Register edges
+  for (const edge of edges) {
+    g.setEdge(edge.source, edge.target, {}, edge.id);
+  }
+
+  // If multiple phases exist, add ordering hints between phases if no cycle is created
+  if (phases.size > 1) {
+    const sortedPhases = Array.from(phases).sort();
+    const phaseNodesMap = new Map<string, string[]>();
+    for (const node of nodes) {
+      if (node.data.phase) {
+        const list = phaseNodesMap.get(node.data.phase) ?? [];
+        list.push(node.id);
+        phaseNodesMap.set(node.data.phase, list);
+      }
+    }
+
+    // Connect last node of previous phase to first node of next phase if not already connected
+    for (let i = 0; i < sortedPhases.length - 1; i++) {
+      const prevPhaseName = sortedPhases[i]!;
+      const nextPhaseName = sortedPhases[i + 1]!;
+      const prevNodes = phaseNodesMap.get(prevPhaseName);
+      const nextNodes = phaseNodesMap.get(nextPhaseName);
+
+      if (prevNodes?.[0] && nextNodes?.[0]) {
+        // Only set if not already introducing an edge
+        if (!g.hasEdge(prevNodes[0], nextNodes[0])) {
+          // Weight 0 / minlen 1 as soft alignment hint
+          g.setEdge(
+            prevNodes[0],
+            nextNodes[0],
+            { minlen: 1, weight: 0 },
+            `hint_${prevPhaseName}_${nextPhaseName}`,
+          );
+        }
+      }
+    }
+  }
+
+  // Execute Dagre layout calculation
+  dagre.layout(g);
+
+  // Position nodes based on Dagre layout (convert from center anchor to top-left anchor)
+  const layoutedNodes: StepNode[] = nodes.map((node) => {
+    const dagreNode = g.node(node.id);
+    const x = dagreNode ? dagreNode.x - nodeWidth / 2 : 0;
+    const y = dagreNode ? dagreNode.y - nodeHeight / 2 : 0;
+
+    return {
+      ...node,
+      position: { x, y },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
+
+/**
+ * Converts backend BuildGraph into React Flow nodes and edges,
+ * laid out with Dagre.
+ */
+export function toFlow(
+  graph: BuildGraph,
+  options: LayoutOptions = {},
+): {
   nodes: StepNode[];
   edges: Edge[];
 } {
   const ids = new Set(graph.nodes.map((node) => String(node.id)));
 
+  // Extract explicit edges or dependency pairs
   const pairs: [string, string][] = [];
   for (const edge of graph.edges ?? []) {
     const ends = edgeEnds(edge);
-    if (ends && ids.has(ends[0]) && ids.has(ends[1])) pairs.push(ends);
+    if (ends && ids.has(ends[0]) && ids.has(ends[1])) {
+      pairs.push(ends);
+    }
   }
   if (pairs.length === 0) {
     for (const node of graph.nodes) {
       for (const dep of node.dependencies ?? []) {
-        if (ids.has(String(dep))) pairs.push([String(dep), String(node.id)]);
+        if (ids.has(String(dep))) {
+          pairs.push([String(dep), String(node.id)]);
+        }
       }
     }
   }
 
-  // Depth = longest chain of prerequisites. Bounded relaxation tolerates cycles.
-  const depth = new Map<string, number>();
-  ids.forEach((id) => depth.set(id, 0));
-  for (let pass = 0; pass < ids.size; pass += 1) {
-    let changed = false;
-    for (const [source, target] of pairs) {
-      const next = (depth.get(source) ?? 0) + 1;
-      if (next > (depth.get(target) ?? 0) && next < ids.size) {
-        depth.set(target, next);
-        changed = true;
-      }
-    }
-    if (!changed) break;
-  }
-
-  const rowInColumn = new Map<number, number>();
-  const nodes: StepNode[] = graph.nodes.map((node) => {
+  const rawNodes: StepNode[] = graph.nodes.map((node) => {
     const id = String(node.id);
-    const column = depth.get(id) ?? 0;
-    const row = rowInColumn.get(column) ?? 0;
-    rowInColumn.set(column, row + 1);
+    const stepKey = text(node.key) ?? text(node.step_key);
+    const phase = extractPhase(node);
 
     return {
       id,
       type: "step",
-      position: validPosition(node) ?? {
-        x: column * COLUMN_GAP,
-        y: row * ROW_GAP,
-      },
+      position: { x: 0, y: 0 },
       data: {
+        id,
         title:
           text(node.title) ?? text(node.name) ?? text(node.label) ?? "Step",
-        stepKey: text(node.key) ?? text(node.step_key),
+        stepKey,
         status: toStepStatus(node.status),
+        phase,
+        description: text(node.description),
+        notes: text(node.notes),
+        dependencies: node.dependencies?.map(String),
       },
     };
   });
 
-  const edges: Edge[] = pairs.map(([source, target]) => ({
+  const rawEdges: Edge[] = pairs.map(([source, target]) => ({
     id: `${source}->${target}`,
     source,
     target,
     type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+    style: { stroke: "var(--ink)", strokeWidth: 2 },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 18,
+      height: 18,
+      color: "var(--ink)",
+    },
   }));
 
-  return { nodes, edges };
+  return layoutWithDagre(rawNodes, rawEdges, options);
 }

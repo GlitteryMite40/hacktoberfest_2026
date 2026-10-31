@@ -61,12 +61,27 @@ const STATUS_MAP: Record<StepStatus, StatusConfig> = {
   },
 };
 
-export function StepNodeComponent({ data }: NodeProps<StepNode>) {
+export function StepNodeComponent({ data, selected }: NodeProps<StepNode>) {
   const statusConfig = STATUS_MAP[data.status] ?? STATUS_MAP.not_started;
   const IconComponent = statusConfig.icon;
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      // Keyboard selection is naturally supported
+    }
+  };
+
   return (
-    <div className="card-neo w-64 p-3 relative cursor-pointer select-none bg-[var(--surface)] text-[var(--text)] transition-transform hover:-translate-y-0.5">
+    <div
+      tabIndex={0}
+      role="button"
+      aria-label={`${data.title} - Status: ${statusConfig.word}${data.phase ? ` - Phase: ${data.phase}` : ""}`}
+      onKeyDown={handleKeyDown}
+      className={`card-neo w-64 p-3 relative cursor-pointer select-none bg-[var(--surface)] text-[var(--text)] transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-3 focus-visible:ring-[#8267F5] focus-visible:ring-offset-2 ${
+        selected ? "!border-[#8267F5] shadow-[6px_6px_0_#8267F5]" : ""
+      }`}
+    >
       <Handle
         type="target"
         position={Position.Left}
@@ -76,16 +91,24 @@ export function StepNodeComponent({ data }: NodeProps<StepNode>) {
         <div
           className="w-10 h-10 rounded-[10px] border-2 border-[var(--ink)] flex items-center justify-center text-black shrink-0 shadow-[2px_2px_0_var(--ink)]"
           style={{ backgroundColor: statusConfig.bg }}
+          aria-hidden="true"
         >
           <IconComponent className="w-5 h-5 stroke-[2.5]" />
         </div>
         <div className="min-w-0 flex-1">
-          {data.stepKey && (
-            <span className="block font-mono text-[11px] text-[var(--text-muted)] font-semibold tracking-wider">
-              {data.stepKey}
-            </span>
-          )}
-          <h4 className="font-bold text-sm leading-tight truncate text-[var(--text)]">
+          <div className="flex items-center justify-between gap-1">
+            {data.stepKey && (
+              <span className="block font-mono text-[11px] text-[var(--text-muted)] font-semibold tracking-wider">
+                {data.stepKey}
+              </span>
+            )}
+            {data.phase && (
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded border border-[var(--ink)] bg-[var(--background)] text-[var(--text-muted)]">
+                {data.phase}
+              </span>
+            )}
+          </div>
+          <h4 className="font-bold text-sm leading-tight truncate text-[var(--text)] mt-0.5">
             {data.title}
           </h4>
           <span className="inline-block text-[11px] font-semibold text-[var(--text-muted)] mt-0.5">
