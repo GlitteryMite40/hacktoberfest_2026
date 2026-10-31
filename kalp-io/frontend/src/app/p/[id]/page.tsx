@@ -6,6 +6,8 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  FileCode,
+  FileText,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -14,6 +16,7 @@ import type { BuildGraph, Project } from "@/types";
 import { toFlow, type StepNode } from "@/lib/plan-map";
 import { Graph } from "@/components/Graph";
 import { NodePanel } from "@/components/NodePanel";
+import { downloadPlanAsJson, downloadPlanAsMarkdown } from "@/lib/export";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -180,21 +183,45 @@ function ProjectGraphContent({ params }: PageProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="card-neo px-3.5 py-2 flex items-center gap-2 bg-[var(--surface)] text-xs font-bold text-[var(--text)]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+            <div className="card-neo px-3 py-2 flex items-center gap-2 bg-[var(--surface)] text-xs font-bold text-[var(--text)]">
               <CheckCircle2 className="w-4 h-4 text-[#3EC02F]" />
               <span>
                 {completedNodes} / {nodes.length} done
               </span>
             </div>
+
+            {graph && graph.nodes.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => downloadPlanAsMarkdown(graph, project)}
+                  className="h-10 px-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--ink)]"
+                  title="Download Markdown checklist"
+                >
+                  <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>MD</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadPlanAsJson(graph, project)}
+                  className="h-10 px-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--ink)]"
+                  title="Download plan as JSON"
+                >
+                  <FileCode className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>JSON</span>
+                </button>
+              </>
+            )}
+
             <button
               type="button"
               onClick={fetchProjectAndGraph}
-              className="h-10 px-3.5 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer"
+              className="h-10 px-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] font-bold text-xs control-neo flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--ink)]"
               title="Refresh graph"
             >
               <RefreshCw className="w-3.5 h-3.5 stroke-[2.5]" />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </div>
