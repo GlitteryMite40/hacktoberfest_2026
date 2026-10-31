@@ -80,15 +80,43 @@ export interface Project {
   id: string;
   title: string;
   description?: string;
+  /** The raw idea text the plan is generated from. */
+  idea?: string;
+  /** Overall generation status, e.g. "pending" | "running" | "completed" | "failed". */
+  status?: string;
+  /** Key of the stage currently being generated. */
+  current_stage?: string;
+  /** Generation stages, as a list or a key -> status map. */
+  stages?: ProjectStage[] | Record<string, ProjectStage | string>;
+  /** Last error message from a failed stage. */
+  error?: string | null;
   created_at?: string;
   updated_at?: string;
   repo?: ConnectedRepoInfo | null;
   [key: string]: unknown;
 }
 
+export interface ProjectStage {
+  key?: string;
+  name?: string;
+  label?: string;
+  status?: string;
+  error?: string | null;
+  [key: string]: unknown;
+}
+
+/** Response of POST /api/projects/{id}/run (advances one stage). */
+export interface RunStageResponse {
+  stage?: string;
+  status?: string;
+  done?: boolean;
+  [key: string]: unknown;
+}
+
 export interface CreateProjectPayload {
   title: string;
   description?: string;
+  idea?: string;
   [key: string]: unknown;
 }
 

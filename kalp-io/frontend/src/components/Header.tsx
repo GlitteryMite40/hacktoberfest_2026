@@ -1,18 +1,25 @@
+import Link from "next/link";
+
 export function Header() {
   return (
-    <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-8">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-xl tracking-tight text-foreground">
-            Kalp<span className="text-blue-500">.io</span>
+    <header className="h-16 w-full px-4 sm:px-8 border-b-2 border-[var(--ink)] bg-[var(--surface)]">
+      <div className="max-w-5xl mx-auto h-full flex items-center justify-between">
+        <Link
+          href="/"
+          className="flex items-center gap-2 group focus:outline-none"
+        >
+          <div className="w-9 h-9 rounded-[10px] border-2 border-[var(--ink)] bg-[#FFCF1E] flex items-center justify-center font-extrabold text-black text-xl shadow-[2px_2px_0_var(--ink)]">
+            K
+          </div>
+          <span className="font-extrabold text-2xl tracking-tight text-[var(--text)]">
+            Kalp<span className="text-[#8267F5]">.io</span>
           </span>
-          <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-medium px-2 py-0.5 rounded-full">
+        </Link>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline-block text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border-2 border-[var(--ink)] bg-[#B1DA19] text-black shadow-[2px_2px_0_var(--ink)]">
             Build Graph
           </span>
         </div>
-        <nav className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="text-xs text-zinc-500">v0.1.0</span>
-        </nav>
       </div>
     </header>
   );

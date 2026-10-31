@@ -11,6 +11,7 @@ import type {
   NodeUpdatePayload,
   PingResponse,
   Project,
+  RunStageResponse,
   ServiceInfo,
   SimpleActionResponse,
   WebhookResponse,
@@ -75,12 +76,44 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(
-      `API request failed with status ${response.status}: ${errorText || response.statusText}`,
-    );
+    throw new ApiError(response.status, errorText || response.statusText);
   }
 
   return response.json();
+}
+
+/** Error thrown for non-2xx responses. `detail` is FastAPI's error detail when present. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: string | undefined;
+
+  constructor(status: number, body: string) {
+    super(`API request failed with status ${status}: ${body}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = parseDetail(body);
+  }
+}
+
+function parseDetail(body: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (parsed && typeof parsed === "object" && "detail" in parsed) {
+      const detail = (parsed as { detail: unknown }).detail;
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail)) {
+        const first: unknown = detail[0];
+        if (first && typeof first === "object" && "msg" in first) {
+          const msg = (first as { msg: unknown }).msg;
+          if (typeof msg === "string") return msg;
+        }
+      }
+    }
+  } catch {
+    // Not JSON; fall through.
+  }
+  const trimmed = body.trim();
+  return trimmed.length > 0 && trimmed.length <= 300 ? trimmed : undefined;
 }
 
 /**
@@ -141,9 +174,9 @@ export async function deleteProject(
   );
 }
 
-/** POST /api/projects/{id}/run -> run the project through Gemini and generate/refresh the graph */
-export async function runProject(projectId: string): Promise<BuildGraph> {
-  return apiFetch<BuildGraph>(
+/** POST /api/projects/{id}/run -> run the next generation stage (call repeatedly until done) */
+export async function runProject(projectId: string): Promise<RunStageResponse> {
+  return apiFetch<RunStageResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/run`,
     {
       method: "POST",
