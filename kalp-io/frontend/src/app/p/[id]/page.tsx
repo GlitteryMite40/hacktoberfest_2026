@@ -1,19 +1,19 @@
 "use client";
 
-import React, { Suspense, use, useEffect, useState } from "react";
+import React, { Suspense, use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
-  Layers,
   Loader2,
   RefreshCw,
 } from "lucide-react";
 import { getProject, getProjectGraph } from "@/lib/api";
 import type { BuildGraph, Project } from "@/types";
-import type { StepNode } from "@/lib/plan-map";
+import { toFlow, type StepNode } from "@/lib/plan-map";
 import { Graph } from "@/components/Graph";
+import { NodePanel } from "@/components/NodePanel";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -86,7 +86,7 @@ function ProjectGraphContent({ params }: PageProps) {
             : "Failed to load project build graph.",
         );
       } finally {
-        if (!isMounted) setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     })();
 
@@ -94,6 +94,11 @@ function ProjectGraphContent({ params }: PageProps) {
       isMounted = false;
     };
   }, [projectId]);
+
+  const flowNodes = useMemo(() => {
+    if (!graph || !graph.nodes) return [];
+    return toFlow(graph).nodes;
+  }, [graph]);
 
   if (isLoading) {
     return <LoadingFallback />;
@@ -195,75 +200,32 @@ function ProjectGraphContent({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Main Graph Component */}
-      <Graph
-        graph={graph}
-        className="h-[680px]"
-        onNodeSelect={(node) => setSelectedNode(node)}
-      />
-
-      {/* Selected Node Details Drawer / Card */}
-      {selectedNode && (
-        <div className="card-neo p-5 sm:p-6 space-y-3 bg-[var(--surface)] animate-in fade-in-50 duration-200">
-          <div className="flex items-center justify-between border-b-2 border-[var(--ink)] pb-3">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#8267F5]" />
-              <h3 className="font-bold text-base text-[var(--text)]">
-                {selectedNode.data.title}
-              </h3>
-              {selectedNode.data.stepKey && (
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  ({selectedNode.data.stepKey})
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedNode(null)}
-              className="text-xs font-bold px-2 py-1 rounded border border-[var(--ink)] bg-[var(--background)] hover:bg-[var(--surface)]"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div>
-              <span className="font-bold text-[var(--text-muted)] block mb-0.5">
-                Status
-              </span>
-              <span className="font-extrabold capitalize text-[var(--text)]">
-                {selectedNode.data.status.replace("_", " ")}
-              </span>
-            </div>
-            {selectedNode.data.phase && (
-              <div>
-                <span className="font-bold text-[var(--text-muted)] block mb-0.5">
-                  Phase
-                </span>
-                <span className="font-bold text-[var(--text)]">
-                  {selectedNode.data.phase}
-                </span>
-              </div>
-            )}
-            <div>
-              <span className="font-bold text-[var(--text-muted)] block mb-0.5">
-                Prerequisites
-              </span>
-              <span className="font-mono text-[var(--text)]">
-                {selectedNode.data.dependencies?.length
-                  ? selectedNode.data.dependencies.join(", ")
-                  : "None"}
-              </span>
-            </div>
-          </div>
-
-          {selectedNode.data.description && (
-            <p className="text-xs text-[var(--text-muted)] font-medium pt-1">
-              {selectedNode.data.description}
-            </p>
-          )}
+      {/* Main Layout: Graph + Side Panel (NodePanel) */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex-1 w-full min-w-0">
+          <Graph
+            graph={graph}
+            className="h-[680px]"
+            onNodeSelect={(node) => setSelectedNode(node)}
+          />
         </div>
-      )}
+
+        {selectedNode && (
+          <NodePanel
+            node={selectedNode}
+            onClose={() => setSelectedNode(null)}
+            allNodes={flowNodes}
+            onSelectNode={(depId) => {
+              const target = flowNodes.find(
+                (n) => n.id === depId || n.data.stepKey === depId,
+              );
+              if (target) {
+                setSelectedNode(target);
+              }
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

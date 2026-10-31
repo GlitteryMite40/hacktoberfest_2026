@@ -48,9 +48,14 @@ export interface StepData extends Record<string, unknown> {
   stepKey?: string;
   status: StepStatus;
   phase?: string;
+  purpose?: string;
   description?: string;
   notes?: string;
   dependencies?: string[];
+  files?: string[];
+  criteria?: string[];
+  tests?: string[];
+  prompt?: string;
 }
 
 export type StepNode = Node<StepData, "step">;
@@ -69,6 +74,60 @@ function edgeEnds(edge: Record<string, unknown>): [string, string] | null {
     text(edge.source) ?? text(edge.from) ?? text(edge.source_id) ?? null;
   const target = text(edge.target) ?? text(edge.to) ?? text(edge.target_id);
   return source && target ? [source, target] : null;
+}
+
+export function toList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter((v) => v.length > 0);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|,/)
+      .map((v) => v.trim().replace(/^[-*•]\s*/, ""))
+      .filter((v) => v.length > 0);
+  }
+  return [];
+}
+
+/**
+ * Generates an LLM execution prompt for a step if not pre-populated.
+ */
+export function generatePrompt(data: Partial<StepData>): string {
+  if (data.prompt && data.prompt.trim()) {
+    return data.prompt.trim();
+  }
+
+  const parts: string[] = [];
+  const title = data.title || "Step Task";
+  const stepKey = data.stepKey ? `[${data.stepKey}] ` : "";
+
+  parts.push(`FEATURE / TASK: ${stepKey}${title}`);
+  if (data.phase) {
+    parts.push(`PHASE: ${data.phase}`);
+  }
+  if (data.purpose || data.description) {
+    parts.push(`\nPURPOSE:\n${data.purpose || data.description}`);
+  }
+  if (data.dependencies && data.dependencies.length > 0) {
+    parts.push(
+      `\nPREREQUISITES (NEEDS FIRST):\n${data.dependencies.map((d) => `- ${d}`).join("\n")}`,
+    );
+  }
+  if (data.files && data.files.length > 0) {
+    parts.push(
+      `\nFILES / MODULES:\n${data.files.map((f) => `- ${f}`).join("\n")}`,
+    );
+  }
+  if (data.criteria && data.criteria.length > 0) {
+    parts.push(
+      `\nACCEPTANCE CRITERIA:\n${data.criteria.map((c) => `- ${c}`).join("\n")}`,
+    );
+  }
+  if (data.tests && data.tests.length > 0) {
+    parts.push(`\nTEST CASES:\n${data.tests.map((t) => `- ${t}`).join("\n")}`);
+  }
+
+  return parts.join("\n");
 }
 
 /** Extracts or derives phase name for a node */
@@ -236,22 +295,37 @@ export function toFlow(
     const id = String(node.id);
     const stepKey = text(node.key) ?? text(node.step_key);
     const phase = extractPhase(node);
+    const purpose = text(node.purpose) ?? text(node.description);
+    const files = toList(node.files);
+    const criteria = toList(node.criteria ?? node.acceptance_criteria);
+    const tests = toList(node.tests ?? node.test_cases);
+    const dependencies = node.dependencies?.map(String);
+
+    const stepData: StepData = {
+      id,
+      title: text(node.title) ?? text(node.name) ?? text(node.label) ?? "Step",
+      stepKey,
+      status: toStepStatus(node.status),
+      phase,
+      purpose,
+      description: text(node.description),
+      notes: text(node.notes),
+      dependencies,
+      files: files.length > 0 ? files : undefined,
+      criteria: criteria.length > 0 ? criteria : undefined,
+      tests: tests.length > 0 ? tests : undefined,
+      prompt: text(node.prompt),
+    };
+
+    if (!stepData.prompt) {
+      stepData.prompt = generatePrompt(stepData);
+    }
 
     return {
       id,
       type: "step",
       position: { x: 0, y: 0 },
-      data: {
-        id,
-        title:
-          text(node.title) ?? text(node.name) ?? text(node.label) ?? "Step",
-        stepKey,
-        status: toStepStatus(node.status),
-        phase,
-        description: text(node.description),
-        notes: text(node.notes),
-        dependencies: node.dependencies?.map(String),
-      },
+      data: stepData,
     };
   });
 

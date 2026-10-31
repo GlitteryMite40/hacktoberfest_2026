@@ -38,11 +38,22 @@ export interface BuildNode {
   id: string;
   title?: string;
   name?: string;
+  key?: string;
+  step_key?: string;
+  phase?: string;
+  stage?: string;
+  purpose?: string;
   description?: string;
   status?: NodeStatus;
   position?: NodePosition;
   notes?: string;
   dependencies?: string[];
+  files?: string[] | string;
+  criteria?: string[] | string;
+  acceptance_criteria?: string[] | string;
+  tests?: string[] | string;
+  test_cases?: string[] | string;
+  prompt?: string;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
