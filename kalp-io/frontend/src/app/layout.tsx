@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import "./globals.css";
@@ -14,8 +14,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kalp.io",
-  description: "Turn project ideas into dependency-aware build graphs",
+  title: {
+    default: "Kalp.io · Dependency-aware build graph",
+    template: "%s · Kalp.io",
+  },
+  description:
+    "Turn project ideas and specifications into dependency-aware build graphs.",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
 };
 
 export default function RootLayout({
@@ -28,7 +41,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <body className="min-w-[360px] min-h-full flex flex-col bg-[var(--background)] text-[var(--text)]">
         <Header />
         <main className="flex-1 flex flex-col">{children}</main>
       </body>
