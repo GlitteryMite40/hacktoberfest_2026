@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+:root {
+  --background: #fcfaf4;
+  --surface: #fdfdfb;
+  --ink: #000000;
+  --text: #111111;
+  --text-muted: #5f5f5f;
+
+  /* Accent palette (identical in light and dark mode) */
+  --accent-yellow: #ffcf1e;
+  --accent-green: #3ec02f;
+  --accent-lime: #b1da19;
+  --accent-purple: #8267f5;
+  --accent-pink: #fc5082;
+  --accent-pale-yellow: #fde199;
+  --accent-pale-yellow-tab: #ffdb7f;
+  --accent-gray: #999999;
+  --icon-ink: #000000;
+
+  /* Shadows */
+  --shadow-card: 6px 6px 0 #000000;
+  --shadow-control: 4px 4px 0 #000000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --surface: #111111;
+    --ink: #ffffff;
+    --text: #ffffff;
+    --text-muted: #a3a3a3;
+    --shadow-card: 6px 6px 0 #ffffff;
+    --shadow-control: 4px 4px 0 #ffffff;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family:
+    var(--font-sans), "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Neo-brutalist Utility Classes */
+.card-neo {
+  background-color: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.control-neo {
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-control);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+}
+
+.control-neo:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.control-neo:focus-visible {
+  outline: none;
+  ring: 3px solid #8267f5;
+  ring-offset: 2px;
+}
+
+/* Custom scrollbars matching neo-brutalist feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+  border-left: 1px solid var(--ink);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink);
+  border-radius: 4px;
+}
